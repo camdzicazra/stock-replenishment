@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="frontend/frontend.csproj" />
+  <Project Path="StockReplenishment.csproj" />
+  <Project Path="StockReplenishment.Tests/StockReplenishment.Tests.csproj" />
+</Solution>
