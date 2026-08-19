@@ -1,0 +1,31 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="Reason" Label="Reason for Rejection" Lines="3" 
+                      Required="true" RequiredError="A reason is required to reject a request." 
+                      Variant="Variant.Outlined" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Submit" 
+                   Disabled="@string.IsNullOrWhiteSpace(Reason)">Reject Request</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    public string Reason { get; set; } = string.Empty;
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(Reason));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

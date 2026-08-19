@@ -41,15 +41,17 @@ public class ReplenishmentRequestService(
     }
 
     private async Task PerformExternalValidationAsync(int requestId)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var bgContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var validator = scope.ServiceProvider.GetRequiredService<IStockValidationService>();
+{
+    using var scope = scopeFactory.CreateScope();
+    var bgContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var validator = scope.ServiceProvider.GetRequiredService<IStockValidationService>();
 
+    try
+    {
         var request = await bgContext.Requests.FindAsync(requestId);
         if (request == null) return;
 
-        // Simulate the slow check
+        // Simulating the slow check
         bool isValid = await validator.ValidateStockAvailabilityAsync(request);
 
         if (!isValid)
@@ -59,6 +61,19 @@ public class ReplenishmentRequestService(
             await bgContext.SaveChangesAsync();
         }
     }
+    catch (Exception ex)
+    {
+        var failedRequest = await bgContext.Requests.FindAsync(requestId);
+        if (failedRequest != null)
+        {
+            failedRequest.Status = RequestStatus.Rejected;
+            failedRequest.RejectionReason = "System Error: External validation service failed to respond.";
+            await bgContext.SaveChangesAsync();
+        }
+        
+        Console.WriteLine($"Background validation crashed for Request {requestId}: {ex.Message}");
+    }
+}
 
     public async Task<ReplenishmentRequest?> ApproveRequestAsync(int id)
     {
@@ -81,13 +96,26 @@ public class ReplenishmentRequestService(
         return request;
     }
 
-    public async Task<ReplenishmentRequest?> FulfillRequestAsync(int id)
+    public async Task<ReplenishmentRequest?> FulfillRequestAsync(int id, List<ItemFulfillment> fulfilledItems)
     {
-        var request = await GetRequestByIdAsync(id);
+        var request = await context.Requests
+                                    .Include(r => r.Items)
+                                    .FirstOrDefaultAsync(r => r.Id == id);
+                                    
         if (request == null || request.Status != RequestStatus.Approved) return null;
+
+        foreach(var item in request.Items)
+        {
+            var frontendItem = fulfilledItems.FirstOrDefault(i => i.ArticleNumber == item.ArticleNumber);
+            if (frontendItem != null)
+            {
+                item.FulfilledQuantity = frontendItem.FulfilledQuantity;
+            }
+        }
 
         request.Status = RequestStatus.Fulfilled;
         await context.SaveChangesAsync();
+        
         return request;
     }
 }

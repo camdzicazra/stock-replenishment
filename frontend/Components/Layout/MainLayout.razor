@@ -1,23 +1,42 @@
 ﻿@inherits LayoutComponentBase
+@inject frontend.Services.RoleState State
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+<MudLayout>
+    <MudAppBar Style="background-color: #E60012; color: white;" Fixed="true" Elevation="1">
+        <MudText Typo="Typo.h5" Class="font-weight-bold">Stock Replenishment</MudText>
+        <MudSpacer />
+        
+        <div class="d-flex align-center">
+            <MudText Typo="Typo.body2" Class="mr-3" Style="white-space: nowrap; font-weight: 500;">
+                Simulate Role:
+            </MudText>
+            
+            <MudSelect T="string" Value="@State.CurrentRole" ValueChanged="OnRoleChanged"
+                    Variant="Variant.Outlined" 
+                    Margin="Margin.Dense" 
+                    Dense="true"
+                    Style="background-color: white; color: black; border-radius: 4px; width: 140px;">
+                <MudSelectItem Value="@("Worker")">Worker</MudSelectItem>
+                <MudSelectItem Value="@("Reviewer")">Reviewer</MudSelectItem>
+            </MudSelect>
         </div>
+    </MudAppBar>
 
-        <article class="content px-4">
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 mb-16">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@code {
+    private void OnRoleChanged(string newRole)
+    {
+        State.SetRole(newRole); 
+    }
+}

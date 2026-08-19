@@ -1,0 +1,46 @@
+@using MudBlazor
+@using frontend.Models
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-4">Enter the actual quantities you found:</MudText>
+        
+        @foreach (var item in RequestToFulfill.Items)
+        {
+            <div class="d-flex align-center mb-3">
+                <MudText Typo="Typo.body2" Class="flex-grow-1">
+                    <strong>@item.ArticleNumber</strong> - (Req: @item.RequestedQuantity)
+                </MudText>
+                
+                <!-- Notice T="int?" here to match your model -->
+                <MudNumericField T="int?" @bind-Value="item.FulfilledQuantity" 
+                                 Min="0" Max="@item.RequestedQuantity" 
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 100px;" />
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Info" Variant="Variant.Filled" OnClick="Submit">Complete Fulfillment</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public ReplenishmentRequestDto RequestToFulfill { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        foreach (var item in RequestToFulfill.Items)
+        {
+            item.FulfilledQuantity = item.RequestedQuantity;
+        }
+    }
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(RequestToFulfill.Items));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

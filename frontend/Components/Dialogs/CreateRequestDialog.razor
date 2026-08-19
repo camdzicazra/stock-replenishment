@@ -1,0 +1,61 @@
+@using MudBlazor
+@using frontend.Models
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="TargetLocation" Label="Target Location (e.g., Warehouse A)" Required="true" Class="mb-4" Variant="Variant.Outlined" />
+        
+        <!-- NEW: Priority Dropdown -->
+        <MudSelect T="RequestPriority" @bind-Value="Priority" Label="Priority Level" Variant="Variant.Outlined" Class="mb-4">
+            <MudSelectItem Value="RequestPriority.Low">Low</MudSelectItem>
+            <MudSelectItem Value="RequestPriority.Normal">Normal</MudSelectItem>
+            <MudSelectItem Value="RequestPriority.Urgent">Urgent</MudSelectItem>
+        </MudSelect>
+        
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Item Details</MudText>
+        <MudTextField T="string" @bind-Value="ArticleNumber" Label="Article Number" Required="true" Class="mb-2" Variant="Variant.Outlined" />
+        <MudTextField T="string" @bind-Value="Description" Label="Item Description" Required="true" Class="mb-2" Variant="Variant.Outlined" />
+        <MudNumericField T="int" @bind-Value="Quantity" Label="Quantity" Required="true" Min="1" Variant="Variant.Outlined" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" 
+                   Disabled="@(string.IsNullOrWhiteSpace(TargetLocation) || string.IsNullOrWhiteSpace(ArticleNumber) || Quantity < 1)">
+            Create Draft
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    public string TargetLocation { get; set; } = string.Empty;
+    public string ArticleNumber { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int Quantity { get; set; } = 1;
+    
+    public RequestPriority Priority { get; set; } = RequestPriority.Normal;
+
+    private void Submit()
+    {
+        var newRequest = new ReplenishmentRequestDto
+        {
+            TargetLocation = TargetLocation,
+            Priority = Priority, 
+            Items = new List<RequestItemDto>
+            {
+                new RequestItemDto
+                {
+                    ArticleNumber = ArticleNumber,
+                    Description = Description,
+                    RequestedQuantity = Quantity
+                }
+            }
+        };
+
+        MudDialog.Close(DialogResult.Ok(newRequest));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

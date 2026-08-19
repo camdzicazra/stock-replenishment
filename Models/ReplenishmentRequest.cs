@@ -8,7 +8,6 @@ public class ReplenishmentRequest
     public RequestStatus Status { get; set; } = RequestStatus.Draft;
     public RequestPriority Priority { get; set; } = RequestPriority.Normal;
     
-    // Only required if the reviewer rejects the request
     public string? RejectionReason { get; set; }
     
     public List<RequestItem> Items { get; set; } = new();

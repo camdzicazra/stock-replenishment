@@ -10,5 +10,5 @@ public interface IReplenishmentRequestService
     Task<ReplenishmentRequest?> SubmitRequestAsync(int id);
     Task<ReplenishmentRequest?> ApproveRequestAsync(int id);
     Task<ReplenishmentRequest?> RejectRequestAsync(int id, string reason);
-    Task<ReplenishmentRequest?> FulfillRequestAsync(int id);
+    Task<ReplenishmentRequest?> FulfillRequestAsync(int id, List<ItemFulfillment> fulfilledItems);
 }

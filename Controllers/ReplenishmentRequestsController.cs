@@ -193,12 +193,13 @@ public class ReplenishmentRequestsController(IReplenishmentRequestService reques
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> FulfillRequest(int id)
+    public async Task<IActionResult> FulfillRequest(int id, [FromBody] List<ItemFulfillment> fulfilledItems)
     {
         if (id <= 0) return CreateError(400, "ID must be a positive integer.");
         if (CurrentRole != "Worker") return CreateError(403, "Only Workers can fulfill requests.");
 
-        var request = await requestService.FulfillRequestAsync(id);
+        var request = await requestService.FulfillRequestAsync(id, fulfilledItems);
+        
         if (request == null) return CreateError(404, "Request not found or not in Approved status.");
 
         return Ok(request);

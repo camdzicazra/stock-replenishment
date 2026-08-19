@@ -1,7 +1,327 @@
 ﻿@page "/"
+@inject ReplenishmentApiService ApiService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject frontend.Services.RoleState State
+@implements IDisposable
+@inject ReplenishmentApiService ApiService
+@inject ISnackbar Snackbar
 
-<PageTitle>Home</PageTitle>
+<div class="d-flex justify-space-between align-center mb-6">
+    <MudText Typo="Typo.h4">Active Replenishment Requests</MudText>
+    
+    @if (State.CurrentRole == "Worker")
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="CreateNewRequest">
+            New Request
+        </MudButton>
+    }
+</div>
 
-<h1>Hello, world!</h1>
+<MudTable Items="@_requests" Dense="true" Hover="true" Elevation="1" Loading="@_loading" LoadingProgressColor="Color.Primary" Filter="FilterFunc">
 
-Welcome to your new app.
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Replenishment Requests</MudText>
+        <MudSpacer />
+        
+        <!-- The Filter Controls -->
+        <MudGrid Spacing="2" Class="align-center justify-end" Style="max-width: 800px;">
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_searchLocation" 
+                              Placeholder="Search Location..." 
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Material.Filled.Search" 
+                              IconSize="Size.Medium" 
+                              Margin="Margin.Dense"
+                              Variant="Variant.Outlined"
+                              Clearable="true" />
+            </MudItem>
+            
+            <MudItem xs="12" sm="4">
+                <MudSelect T="RequestStatus?" @bind-Value="_selectedStatus" 
+                           Label="Filter by Status" 
+                           Margin="Margin.Dense" 
+                           Variant="Variant.Outlined" 
+                           Clearable="true">
+                    <MudSelectItem T="RequestStatus?" Value="@RequestStatus.Draft">Draft</MudSelectItem>
+                    <MudSelectItem T="RequestStatus?" Value="@RequestStatus.Submitted">Submitted</MudSelectItem>
+                    <MudSelectItem T="RequestStatus?" Value="@RequestStatus.Approved">Approved</MudSelectItem>
+                    <MudSelectItem T="RequestStatus?" Value="@RequestStatus.Rejected">Rejected</MudSelectItem>
+                    <MudSelectItem T="RequestStatus?" Value="@RequestStatus.Fulfilled">Fulfilled</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudSelect T="RequestPriority?" @bind-Value="_selectedPriority" 
+                           Label="Filter by Priority" 
+                           Margin="Margin.Dense" 
+                           Variant="Variant.Outlined" 
+                           Clearable="true">
+                    <MudSelectItem T="RequestPriority?" Value="@RequestPriority.Low">Low</MudSelectItem>
+                    <MudSelectItem T="RequestPriority?" Value="@RequestPriority.Normal">Normal</MudSelectItem>
+                    <MudSelectItem T="RequestPriority?" Value="@RequestPriority.Urgent">Urgent</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </ToolBarContent>
+    
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<ReplenishmentRequestDto, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<ReplenishmentRequestDto, object>(x => x.TargetLocation)">Location</MudTableSortLabel></MudTh>
+        
+        <MudTh>Item Details</MudTh>
+        
+        <MudTh><MudTableSortLabel SortBy="new Func<ReplenishmentRequestDto, object>(x => x.Priority)">Priority</MudTableSortLabel></MudTh>
+        
+        <MudTh><MudTableSortLabel SortBy="new Func<ReplenishmentRequestDto, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="ID">@context.Id</MudTd>
+        <MudTd DataLabel="Location"><strong>@context.TargetLocation</strong></MudTd>
+        
+        <MudTd DataLabel="Item Details">
+            @if (context.Items != null && context.Items.Any())
+            {
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    @foreach (var item in context.Items)
+                    {
+                        <li>
+                            <MudText Typo="Typo.body2">
+                                <strong>@item.ArticleNumber</strong> - @item.Description 
+                                (Req: @item.RequestedQuantity 
+                                @if(context.Status == RequestStatus.Fulfilled)
+                                {
+                                    <span style="color: green; font-weight: bold;">| Fulfill: @item.FulfilledQuantity</span>
+                                })
+                            </MudText>
+                        </li>
+                    }
+                </ul>
+            }
+        </MudTd>
+        
+        <MudTd DataLabel="Priority">
+            <MudChip T="string" Color="@GetPriorityColor(context.Priority)" Size="Size.Small" Variant="Variant.Outlined">
+                @context.Priority.ToString()
+            </MudChip>
+        </MudTd>
+        
+        <MudTd DataLabel="Status">
+            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">
+                @context.Status.ToString()
+            </MudChip>
+            
+            @if (context.Status == RequestStatus.Rejected && !string.IsNullOrWhiteSpace(context.RejectionReason))
+            {
+                <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block mt-1">
+                    <em>Reason: @context.RejectionReason</em>
+                </MudText>
+            }
+        </MudTd>
+        
+        <MudTd DataLabel="Actions">
+            @if (State.CurrentRole == "Worker" && context.Status == RequestStatus.Draft)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" DisableElevation="true" OnClick="@(() => SubmitRequest(context.Id))">Submit</MudButton>
+            }
+            @if (State.CurrentRole == "Reviewer" && context.Status == RequestStatus.Submitted)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" Class="mr-2" DisableElevation="true" OnClick="@(() => ApproveRequest(context.Id))">Approve</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" DisableElevation="true" OnClick="@(() => RejectRequest(context.Id))">Reject</MudButton>
+            }
+            @if (State.CurrentRole == "Worker" && context.Status == RequestStatus.Approved)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Info" DisableElevation="true" OnClick="@(() => FulfillRequest(context.Id))">Fulfill</MudButton>
+            }
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private string _searchLocation = string.Empty;
+    private RequestStatus? _selectedStatus = null;
+    private RequestPriority? _selectedPriority = null;
+    private List<ReplenishmentRequestDto> _requests = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged; // Listen for role changes
+        await LoadDataAsync();
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged; // Clean up memory
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            var result = await ApiService.GetRequestsAsync(1, 50);
+            if (result != null)
+            {
+                _requests = result.Items;
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Failed to connect to the API. Make sure the backend is running.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SubmitRequest(int id)
+    {
+        var response = await ApiService.SubmitRequestAsync(id, State.CurrentRole);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Request submitted and sent for background validation.", Severity.Info);
+            await LoadDataAsync();
+        }
+        else
+        {
+            Snackbar.Add("Failed to submit request.", Severity.Error);
+        }
+    }
+
+    private async Task ApproveRequest(int id)
+    {
+        var response = await ApiService.ApproveRequestAsync(id, State.CurrentRole);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Request approved successfully.", Severity.Success);
+            await LoadDataAsync();
+        }
+        else
+        {
+            Snackbar.Add("Failed to approve request.", Severity.Error);
+        }
+    }
+
+    private async Task RejectRequest(int id)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<frontend.Components.Dialogs.RejectDialog>("Reject Request", options);
+        
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var reason = result.Data.ToString();
+            var response = await ApiService.RejectRequestAsync(id, reason, State.CurrentRole);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Request rejected.", Severity.Warning);
+                await LoadDataAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to reject request.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task FulfillRequest(int id)
+    {
+        var requestToFulfill = _requests.First(r => r.Id == id);
+        
+        var parameters = new DialogParameters { ["RequestToFulfill"] = requestToFulfill };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        
+        var dialog = await DialogService.ShowAsync<frontend.Components.Dialogs.FulfillDialog>("Fulfill Request", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is IEnumerable<frontend.Models.RequestItemDto> fulfilledItems)
+        {
+            var payload = fulfilledItems.Select(i => new 
+            {
+                ArticleNumber = i.ArticleNumber,
+                FulfilledQuantity = i.FulfilledQuantity ?? 0
+            }).ToList();
+
+            var response = await ApiService.FulfillAsync(id, payload, State.CurrentRole);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Request successfully fulfilled.", Severity.Success);
+                await LoadDataAsync(); 
+            }
+            else
+            {
+                Snackbar.Add("Failed to save fulfillment.", Severity.Error);
+            }
+        }
+    }
+
+    private Color GetPriorityColor(RequestPriority priority) => priority switch
+    {
+        RequestPriority.Urgent => Color.Error,
+        RequestPriority.Normal => Color.Info,
+        RequestPriority.Low => Color.Default,
+        _ => Color.Default
+    };
+
+    private Color GetStatusColor(RequestStatus status) => status switch
+    {
+        RequestStatus.Draft => Color.Default,
+        RequestStatus.Submitted => Color.Primary,
+        RequestStatus.Approved => Color.Success,
+        RequestStatus.Rejected => Color.Error,
+        RequestStatus.Fulfilled => Color.Info,
+        _ => Color.Default
+    };
+
+    private async Task CreateNewRequest()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<frontend.Components.Dialogs.CreateRequestDialog>("Create New Request", options);
+        
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is ReplenishmentRequestDto newRequest)
+        {
+            var response = await ApiService.CreateDraftAsync(newRequest, State.CurrentRole);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("New draft request created.", Severity.Success);
+                await LoadDataAsync(); 
+            }
+            else
+            {
+                Snackbar.Add("Failed to create request.", Severity.Error);
+            }
+        }
+    }
+
+    private bool FilterFunc(ReplenishmentRequestDto element)
+    {
+        if (!string.IsNullOrWhiteSpace(_searchLocation))
+        {
+            if (string.IsNullOrWhiteSpace(element.TargetLocation))
+                return false;
+
+            if (!element.TargetLocation.Contains(_searchLocation, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        if (_selectedStatus.HasValue && element.Status != _selectedStatus.Value)
+            return false;
+
+        if (_selectedPriority.HasValue && element.Priority != _selectedPriority.Value)
+            return false;
+
+        return true; 
+    }
+}
