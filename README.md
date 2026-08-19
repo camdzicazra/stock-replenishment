@@ -1,4 +1,4 @@
-# Stock Replenishment Workflow
+# Stock Replenishment Request System
 
 A full-stack .NET 10 application for managing warehouse stock replenishment. It features a strict state machine, asynchronous background processing, and a responsive Blazor UI.
 
@@ -48,7 +48,7 @@ Frontend: Blazor, MudBlazor Component Library
 Testing: NUnit, NSubstitute
 
 **Data Model**
-
+```bash 
 erDiagram
     ReplenishmentRequest ||--o{ RequestItem : "contains"
 
@@ -68,3 +68,4 @@ erDiagram
         int RequestedQuantity
         int FulfilledQuantity 
     }
+```
