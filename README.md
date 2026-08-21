@@ -25,6 +25,8 @@ dotnet run
 
 Navigate to the local port shown in the frontend terminal (http://localhost:5127).
 
+You can explore the API documentation via Swagger at http://localhost:5009/swagger .
+
 Note: The app uses an in-memory database that automatically seeds with mock data on startup, so you can test the workflow immediately.
 
 **Key Features**
